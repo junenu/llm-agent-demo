@@ -1,23 +1,35 @@
-# LLM Agent Demo
+# jupetta - LLM駆動型Cisco IOSネットワークアシスタント
 
-このリポジトリは、LangChainを使用したLLM（大規模言語モデル）エージェントのデモプロジェクトです。特にCiscoネットワークデバイスの情報を取得するためのツールを実装しています。
+## 🌟 概要
 
-## 📚 概要
+jupettaは、LangChainとOpenAI APIを活用したLLM駆動のCisco IOSネットワークアシスタントです。日常的なネットワーク管理タスクを自然言語で簡単に実行できます。
 
-このプロジェクトでは、以下の機能を提供しています：
+## 💻 機能
 
-- LangChain ReActフレームワークを使用したエージェント実装
-- OpenAI APIを利用したChatモデルの活用
-- netmikoを使用したCiscoデバイスへの接続と情報取得
-- 日付取得ツールと連携したバージョン情報取得
+jupettaは以下の機能を備えています：
 
-## 🛠️ ディレクトリ構成
+- **バージョン確認** (`GetVersion`): ネットワーク機器のソフトウェアバージョンを取得
+- **ルーティングテーブル表示** (`GetRouteTable`): IPv4/IPv6ルーティングテーブルの確認
+- **ルーティングプロトコル状態** (`GetRouteProtoState`): BGP/OSPFネイバーやサマリー状態の確認
+- **Ping実行** (`Ping`): ルーターから指定IPアドレスへのping実行
+- **インターフェース設定** (`IfaceConfig`): インターフェースのshut/no shut操作（冪等性あり）
+
+## 🛠️ 設計方針
+
+- 各ツールは単一責任の原則に基づき、Pydantic v2に準拠
+- Netmikoコネクションは`with`コンテキストで安全に管理
+- 出力はファイル書き込みなしで標準出力のみを使用（シンプルさ重視）
+- LangChain ReActフレームワークによるエージェント実装
+- GPT-4o-miniモデルを活用した自然言語理解
+
+## 📁 ディレクトリ構成
 
 ```
 .
 ├── README.md          # このファイル
 ├── jupetta/           # メインアプリケーションディレクトリ
-│   ├── .env           # 環境変数設定ファイル
+│   ├── .env           # 環境変数設定ファイル（要作成）
+│   ├── devices.yaml   # デバイス情報設定ファイル（オプション）
 │   └── main.py        # メインプログラム
 └── test/              # テスト用ディレクトリ
     └── tools.py       # テストツール
@@ -30,6 +42,7 @@
 - Python 3.9以上
 - pip
 - OpenAI APIキー
+- Ciscoデバイスへのアクセス権限
 
 ### インストール
 
@@ -41,13 +54,25 @@ cd llm-agent-demo
 
 2. 必要なパッケージのインストール:
 ```bash
-pip install <適宜必要なパッケージを指定してください>
+pip install langchain langchain_openai netmiko python-dotenv pyyaml
 ```
 
 3. 環境変数の設定:
 jupetta/.envファイルを作成し、以下のように設定してください:
 ```
 OPENAI_API_KEY=YOUR_OPENAI_API_KEY
+DEVICE_TYPE=cisco_ios
+DEVICE_HOST=192.168.1.1
+DEVICE_USERNAME=admin
+DEVICE_PASSWORD=password
+```
+
+または、devices.yamlファイルを使用することもできます:
+```yaml
+- device_type: cisco_ios
+  host: 192.168.1.1
+  username: admin
+  password: password
 ```
 
 ### 実行方法
@@ -55,38 +80,38 @@ OPENAI_API_KEY=YOUR_OPENAI_API_KEY
 メインプログラムを実行:
 ```bash
 cd jupetta
-python main.py
+python main.py "ルーターのバージョンを教えて"
 ```
 
-## 🔧 機能詳細
+引数なしで実行すると、デフォルトで「バージョン情報を教えて」というクエリが使用されます。
 
-### 実装済みツール
+## 💬 使用例
 
-1. **Get_date**
-   - 今日、明日、明後日の日付を取得
-   - 日本のタイムゾーン(Asia/Tokyo)に対応
+```
+$ python main.py "ルーティングテーブルを表示して"
+> ルーティングテーブルを表示します。IPv4とIPv6のどちらを確認しますか？
 
-2. **Get_version**
-   - Cisco IOSデバイスのバージョン情報を取得
-   - netmikoライブラリを使用してSSH接続
+$ python main.py "インターフェースGigabitEthernet0/1をシャットダウンして"
+> インターフェースの状態を確認し、シャットダウン操作を実行します。
+> [OK] GigabitEthernet0/1 を shutdown しました。
 
-## 📝 使用例
+$ python main.py "192.168.1.100にpingを実行して"
+> 192.168.1.100へのping結果を表示します。
+```
 
-エージェントに「バージョン情報を教えてください」と質問すると、以下のような流れで処理が行われます:
+## 🔒 セキュリティに関する注意事項
 
-1. エージェントが日付情報が必要と判断し、Get_dateツールを使用
-2. 取得した日付を元に、Get_versionツールでCiscoデバイスの情報を取得
-3. 整形された結果を返却
-
-## 🔒 セキュリティ注意事項
-
-- .envファイルはgitignoreに追加し、APIキーをGitにコミットしないよう注意
-- 本番環境ではパスワードをハードコーディングせず、適切な認証情報管理を行う
+- 環境変数ファイル(.env)やdevices.yamlはgitignoreに追加し、認証情報をGitにコミットしないよう注意してください
+- 本番環境では適切な認証情報管理を行い、パスワードの漏洩に注意してください
 
 ## 📦 依存ライブラリ
 
-- langchain
-- openai
-- netmiko
-- python-dotenv
-- zoneinfo
+- langchain / langchain_openai: LLMエージェントフレームワーク
+- netmiko: ネットワークデバイスへのSSH接続
+- python-dotenv: 環境変数管理
+- pyyaml: YAMLファイルの読み込み
+- zoneinfo: タイムゾーン管理
+
+## 🤖 技術的詳細
+
+jupettaはGPT-4o-miniモデルを使用し、温度パラメータ0.0でより一貫性のある応答を生成します。すべてのツールは同期・非同期の両方の実装を備え、効率的なI/O処理を可能にしています。
